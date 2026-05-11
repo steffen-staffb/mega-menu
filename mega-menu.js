@@ -15,19 +15,23 @@
   (function injectStyles() {
     if (document.getElementById('sb-megamenu-styles')) return;
     var css = [
-      /* Vorhandenes Submenü-Popover unterdrücken */
+      /* Vorhandenes Submenü-Popover unterdrücken (Selektor an reale DOM-Struktur angepasst) */
       '[data-base-ui-portal] [data-base-ui-navigation-menu-trigger],',
-      '[data-base-ui-portal] > div > div[data-open] {',
+      '[data-base-ui-portal] > div[data-open]:not(.nav-backdrop) {',
       '  display: none !important;',
       '}',
-      '.nav-backdrop { background-color: transparent !important; }',
+      /* Backdrop sichtbar transparent halten UND Klicks durchlassen */
+      '.nav-backdrop {',
+      '  background-color: transparent !important;',
+      '  pointer-events: none !important;',
+      '}',
 
       /* Mega-Menü-Overlay */
       '#sb-megamenu {',
       '  position: fixed;',
       '  left: 0; right: 0;',
       '  top: 84px;',
-      '  z-index: 9999;',
+      '  z-index: 10000;',
       '  background: #ececec;',
       '  color: #111;',
       '  box-shadow: 0 6px 16px rgba(0,0,0,0.12);',
@@ -72,8 +76,8 @@
 
   // ---------- 1. Konfiguration ----------
   var LANG_FALLBACK_ORDER = ['en_US', 'de_DE'];
-  var OVERLAY_ID          = 'sb-megamenu';
-  var CACHE_TTL_MS        = 5 * 60 * 1000; // 5 Minuten
+  var OVERLAY_ID = 'sb-megamenu';
+  var CACHE_TTL_MS = 5 * 60 * 1000; // 5 Minuten
 
   // Selektor für sichtbare Hauptmenü-Items
   var PRIMARY_NAV_SELECTOR =
@@ -171,12 +175,12 @@
           title: title,
           url: url,
           children: ((node.children && node.children.data) || [])
-            .filter(function (c) { return (c.visibility || []).indexOf('desktop') !== -1; })
-            .map(function (c) {
+            .filter(function (g) { return (g.visibility || []).indexOf('desktop') !== -1; })
+            .map(function (g) {
               return {
-                id: c.id,
-                title: pickTitle(c),
-                url: (c.target && c.target.url) || '#'
+                id: g.id,
+                title: pickTitle(g),
+                url: (g.target && g.target.url) || '#'
               };
             })
         };
@@ -267,9 +271,10 @@
   function onPointerOut(ev) {
     var related = ev.relatedTarget;
     if (related && related.closest) {
-      // Cursor noch im Header oder Overlay? → offen lassen
+      // Cursor noch im Header, Overlay oder Native-Portal? → offen lassen
       if (related.closest('header')) return;
       if (related.closest('#' + OVERLAY_ID)) return;
+      if (related.closest('[data-base-ui-portal]')) return;
     }
     currentLi = null;
     clearTimeout(openTimer);
