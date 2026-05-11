@@ -1,5 +1,5 @@
 /**
- * BSH Staffbase Mega-Menü
+ * Staffbase Mega-Menü
  * ------------------------------------------------------------
  * Ersetzt das Standard-Submenü der Top-Navigation durch ein
  * breites Mega-Menü-Overlay, das Ebene 2 + 3 gleichzeitig anzeigt.
@@ -13,9 +13,9 @@
 
   // ---------- 0. CSS in den Head injizieren ----------
   (function injectStyles() {
-    if (document.getElementById('bsh-megamenu-styles')) return;
+    if (document.getElementById('sb-megamenu-styles')) return;
     var css = [
-      /* Base-UI-Submenü unterdrücken */
+      /* Vorhandenes Submenü-Popover unterdrücken */
       '[data-base-ui-portal] [data-base-ui-navigation-menu-trigger],',
       '[data-base-ui-portal] > div > div[data-open] {',
       '  display: none !important;',
@@ -23,7 +23,7 @@
       '.nav-backdrop { background-color: transparent !important; }',
 
       /* Mega-Menü-Overlay */
-      '#bsh-megamenu {',
+      '#sb-megamenu {',
       '  position: fixed;',
       '  left: 0; right: 0;',
       '  top: 84px;',
@@ -34,48 +34,48 @@
       '  padding: 24px 48px;',
       '  display: none;',
       '}',
-      '#bsh-megamenu.open { display: block; }',
+      '#sb-megamenu.open { display: block; }',
 
-      '#bsh-megamenu .bsh-mm-grid {',
+      '#sb-megamenu .sb-mm-grid {',
       '  display: grid;',
       '  grid-template-columns: repeat(4, 1fr);',
       '  gap: 24px 48px;',
       '  max-width: 1332px;',
       '  margin: 0 auto;',
       '}',
-      '#bsh-megamenu .bsh-mm-col h3 {',
+      '#sb-megamenu .sb-mm-col h3 {',
       '  font-size: 16px;',
       '  font-weight: 700;',
       '  margin: 0 0 12px;',
       '  color: #111;',
       '}',
-      '#bsh-megamenu .bsh-mm-col h3 a {',
+      '#sb-megamenu .sb-mm-col h3 a {',
       '  color: inherit; text-decoration: none;',
       '}',
-      '#bsh-megamenu .bsh-mm-col ul {',
+      '#sb-megamenu .sb-mm-col ul {',
       '  list-style: none; margin: 0; padding: 0;',
       '}',
-      '#bsh-megamenu .bsh-mm-col li { margin: 6px 0; }',
-      '#bsh-megamenu .bsh-mm-col a {',
+      '#sb-megamenu .sb-mm-col li { margin: 6px 0; }',
+      '#sb-megamenu .sb-mm-col a {',
       '  color: #222; text-decoration: none; font-size: 14px;',
       '}',
-      '#bsh-megamenu .bsh-mm-col a:hover { text-decoration: underline; }'
+      '#sb-megamenu .sb-mm-col a:hover { text-decoration: underline; }'
     ].join('\n');
 
     var style = document.createElement('style');
-    style.id = 'bsh-megamenu-styles';
+    style.id = 'sb-megamenu-styles';
     style.textContent = css;
     document.head.appendChild(style);
   })();
 
   // ---------- 1. Konfiguration ----------
   var LANG_FALLBACK_ORDER = ['en_US', 'de_DE'];
-  var OVERLAY_ID          = 'bsh-megamenu';
+  var OVERLAY_ID          = 'sb-megamenu';
   var CACHE_TTL_MS        = 5 * 60 * 1000; // 5 Minuten
 
   // Selektor, der ALLE Top-Menü-LIs erfasst:
-  //  - "Hauptmenü" (DE) / "Main menu" (EN)
-  //  - zweiter <nav> ohne aria-label (Areas of Expertise, Products & Brands, About BSH)
+  //  - Hauptnavigation (DE: "Hauptmenü", EN: "Main menu")
+  //  - zweiter <nav> ohne aria-label (zusätzliche Top-Items)
   // Aber NICHT das "Navigation"-Nav mit Icons/User-Menü.
   var HEADER_NAV_SELECTOR =
     'header nav[aria-label="Hauptmenü"] > ul > li, ' +
@@ -159,9 +159,9 @@
   function renderOverlay(columns) {
     var el = ensureOverlay();
     if (!columns.length) { closeOverlay(); return; }
-    var html = '<div class="bsh-mm-grid">';
+    var html = '<div class="sb-mm-grid">';
     columns.forEach(function (col) {
-      html += '<div class="bsh-mm-col">';
+      html += '<div class="sb-mm-col">';
       html += '<h3><a href="' + col.url + '">' + escapeHtml(col.title) + '</a></h3>';
       if (col.children && col.children.length) {
         html += '<ul>';
