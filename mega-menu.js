@@ -15,18 +15,17 @@
   (function injectStyles() {
     if (document.getElementById('sb-megamenu-styles')) return;
     var css = [
-      /* Vorhandenes Submenü-Popover unterdrücken (Selektor an reale DOM-Struktur angepasst) */
+      /* Vorhandenes Submenü-Popover unterdrücken */
       '[data-base-ui-portal] [data-base-ui-navigation-menu-trigger],',
       '[data-base-ui-portal] > div[data-open]:not(.nav-backdrop) {',
       '  display: none !important;',
       '}',
-      /* Backdrop sichtbar transparent halten UND Klicks durchlassen */
       '.nav-backdrop {',
       '  background-color: transparent !important;',
       '  pointer-events: none !important;',
       '}',
 
-      /* Mega-Menü-Overlay */
+      /* Mega-Menü-Overlay – top wird zur Laufzeit dynamisch gesetzt */
       '#sb-megamenu {',
       '  position: fixed;',
       '  left: 0; right: 0;',
@@ -41,14 +40,14 @@
       '}',
       '#sb-megamenu.open { display: block; }',
 
-      /* Unsichtbare "Brücke" über der Lücke zwischen Header und Overlay,
-         damit der Hover beim Bewegen vom Trigger zum Overlay nicht abreißt. */
+      /* Unsichtbare Hover-Brücke nach oben, damit der Hover beim Übergang
+         vom Trigger zum Overlay nicht abreißt. Höhe = Lücke + etwas Puffer. */
       '#sb-megamenu::before {',
       '  content: "";',
       '  position: absolute;',
       '  left: 0; right: 0;',
-      '  top: -40px;',
-      '  height: 40px;',
+      '  top: -24px;',
+      '  height: 24px;',
       '  background: transparent;',
       '  pointer-events: auto;',
       '}',
@@ -76,6 +75,7 @@
       '#sb-megamenu .sb-mm-col a {',
       '  color: #222; text-decoration: none; font-size: 14px;',
       '  pointer-events: auto;',
+      '  cursor: pointer;',
       '}',
       '#sb-megamenu .sb-mm-col a:hover { text-decoration: underline; }'
     ].join('\n');
@@ -89,16 +89,14 @@
   // ---------- 1. Konfiguration ----------
   var LANG_FALLBACK_ORDER = ['en_US', 'de_DE'];
   var OVERLAY_ID = 'sb-megamenu';
-  var CACHE_TTL_MS = 5 * 60 * 1000; // 5 Minuten
+  var CACHE_TTL_MS = 5 * 60 * 1000;
   var OPEN_DELAY_MS  = 120;
   var CLOSE_DELAY_MS = 350;
 
-  // Selektor für sichtbare Hauptmenü-Items
   var PRIMARY_NAV_SELECTOR =
     'header nav[aria-label="Hauptmenü"] > ul > li, ' +
     'header nav[aria-label="Main menu"] > ul > li';
 
-  // Selektor für Overflow-Items (off-screen, sichtbar im "Mehr"-Dropdown)
   var OVERFLOW_NAV_SELECTOR =
     'header nav:not([aria-label]) > ul > li';
 
@@ -131,7 +129,32 @@
     return !hasLink && hasButton;
   }
 
-  // ---------- 3. API-Layer mit einfachem Cache ----------
+  function isInternalUrl(href) {
+    if (!href) return false;
+    if (href.startsWith('/')) return true;
+    try {
+      var u = new URL(href, location.origin);
+      return u.origin === location.origin;
+    } catch (e) { return false; }
+  }
+
+  // ---------- 3. Overlay-Position dynamisch an Header andocken ----------
+  function updateOverlayTop() {
+    var el = document.getElementById(OVERLAY_ID);
+    if (!el) return;
+    var header = document.querySelector('header');
+    if (!header) return;
+    var rect = header.getBoundingClientRect();
+    // Unterkante des Headers = obere Kante des Overlays (keine Lücke)
+    el.style.top = Math.max(0, Math.round(rect.bottom)) + 'px';
+    // Brückenhöhe = etwas Puffer
+    el.style.setProperty('--mm-bridge', '24px');
+  }
+
+  window.addEventListener('resize', updateOverlayTop);
+  window.addEventListener('scroll', updateOverlayTop, true);
+
+  // ---------- 4. API-Layer mit einfachem Cache ----------
   var cache = {};
   function fetchMenu(id) {
     var key = id || 'root';
@@ -200,7 +223,7 @@
     return Promise.all(jobs);
   }
 
-  // ---------- 4. Hover-State ----------
+  // ---------- 5. Hover-State ----------
   var hoveringTrigger = false;
   var hoveringOverlay = false;
   var currentLi  = null;
@@ -216,19 +239,15 @@
       }
     }, CLOSE_DELAY_MS);
   }
+  function cancelClose() { clearTimeout(closeTimer); }
 
-  function cancelClose() {
-    clearTimeout(closeTimer);
-  }
-
-  // ---------- 5. Overlay rendern ----------
+  // ---------- 6. Overlay rendern ----------
   function ensureOverlay() {
     var el = document.getElementById(OVERLAY_ID);
     if (el) return el;
     el = document.createElement('div');
     el.id = OVERLAY_ID;
 
-    // Overlay-eigenes Hover-Tracking – schließt nicht, solange Maus drin ist.
     el.addEventListener('mouseenter', function () {
       hoveringOverlay = true;
       cancelClose();
@@ -238,7 +257,11 @@
       scheduleClose();
     });
 
+    // Klick-Delegation für SPA-Navigation
+    el.addEventListener('click', onOverlayClick, true);
+
     document.body.appendChild(el);
+    updateOverlayTop();
     return el;
   }
 
@@ -261,6 +284,7 @@
     html += '</div>';
     el.innerHTML = html;
     el.classList.add('open');
+    updateOverlayTop();
   }
 
   function closeOverlay() {
@@ -268,7 +292,60 @@
     if (el) el.classList.remove('open');
   }
 
-  // ---------- 6. Hover-Logik per Event-Delegation auf Trigger ----------
+  // ---------- 7. SPA-Navigation ----------
+  function spaNavigate(href) {
+    // Externe Links / neue Tabs etc. → normale Navigation
+    if (!isInternalUrl(href)) {
+      window.location.href = href;
+      return;
+    }
+    try {
+      // 1) Versuch: existierenden Header-Link mit gleicher href "fernsteuern".
+      //    Damit wird der originale React-onClick-Handler ausgelöst (sauberste Lösung).
+      var sameLink = document.querySelector(
+        'header a[href="' + href + '"]'
+      );
+      if (sameLink) {
+        sameLink.click();
+        return;
+      }
+
+      // 2) Fallback: pushState + popstate – die meisten React-Router (v5/v6)
+      //    reagieren darauf und rendern die neue Route ohne Full-Reload.
+      var absolute = new URL(href, location.origin);
+      window.history.pushState({}, '', absolute.pathname + absolute.search + absolute.hash);
+      window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+    } catch (e) {
+      // 3) Letzter Fallback: harte Navigation
+      window.location.href = href;
+    }
+  }
+
+  function onOverlayClick(ev) {
+    // Nur primärer Klick ohne Modifier
+    if (ev.button !== 0) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+
+    var a = ev.target.closest && ev.target.closest('a[href]');
+    if (!a) return;
+    if (a.getAttribute('target') === '_blank') return;
+
+    var href = a.getAttribute('href');
+    if (!href || href === '#') return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    // Menü schließen, dann navigieren
+    hoveringTrigger = false;
+    hoveringOverlay = false;
+    currentLi = null;
+    closeOverlay();
+
+    spaNavigate(href);
+  }
+
+  // ---------- 8. Hover-Logik per Event-Delegation auf Trigger ----------
   function findMenuLi(target) {
     if (!target || !target.closest) return null;
     return target.closest(PRIMARY_NAV_SELECTOR);
@@ -286,7 +363,6 @@
 
     clearTimeout(openTimer);
 
-    // Fall A: "Mehr"-Trigger
     if (isOverflowTrigger(li)) {
       openTimer = setTimeout(function () {
         loadOverflowMenu()
@@ -296,7 +372,6 @@
       return;
     }
 
-    // Fall B: Normaler Menüpunkt
     var a = li.querySelector('a[href]');
     if (!a) { closeOverlay(); return; }
     var id = idFromHref(a.getAttribute('href'));
@@ -310,12 +385,10 @@
   }
 
   function onPointerOut(ev) {
-    // Verlässt der Cursor wirklich die Trigger-Zone?
     var li = findMenuLi(ev.target);
     if (!li) return;
 
     var related = ev.relatedTarget;
-    // Wenn der Cursor in einem anderen Trigger oder im Overlay bleibt → nichts tun
     if (related && related.closest) {
       if (related.closest(PRIMARY_NAV_SELECTOR)) return;
       if (related.closest('#' + OVERLAY_ID)) { hoveringOverlay = true; return; }
@@ -339,5 +412,13 @@
       currentLi = null;
       closeOverlay();
     }
+  });
+
+  // Nach SPA-Navigation Menü zuverlässig schließen
+  window.addEventListener('popstate', function () {
+    hoveringTrigger = false;
+    hoveringOverlay = false;
+    currentLi = null;
+    closeOverlay();
   });
 })();
