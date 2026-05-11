@@ -27,12 +27,13 @@
       '  position: fixed;',
       '  left: 0; right: 0;',
       '  top: 84px;',
-      '  z-index: 9;',
+      '  z-index: 9999;',
       '  background: #ececec;',
       '  color: #111;',
       '  box-shadow: 0 6px 16px rgba(0,0,0,0.12);',
       '  padding: 24px 48px;',
       '  display: none;',
+      '  pointer-events: auto !important;',
       '}',
       '#sb-megamenu.open { display: block; }',
 
@@ -58,6 +59,7 @@
       '#sb-megamenu .sb-mm-col li { margin: 6px 0; }',
       '#sb-megamenu .sb-mm-col a {',
       '  color: #222; text-decoration: none; font-size: 14px;',
+      '  pointer-events: auto;',
       '}',
       '#sb-megamenu .sb-mm-col a:hover { text-decoration: underline; }'
     ].join('\n');
@@ -73,13 +75,13 @@
   var OVERLAY_ID          = 'sb-megamenu';
   var CACHE_TTL_MS        = 5 * 60 * 1000; // 5 Minuten
 
-  // Selektor, der ALLE Top-Menü-LIs erfasst:
-  //  - Hauptnavigation (DE: "Hauptmenü", EN: "Main menu")
-  //  - zweiter <nav> ohne aria-label (zusätzliche Top-Items)
-  // Aber NICHT das "Navigation"-Nav mit Icons/User-Menü.
-  var HEADER_NAV_SELECTOR =
+  // Selektor für sichtbare Hauptmenü-Items
+  var PRIMARY_NAV_SELECTOR =
     'header nav[aria-label="Hauptmenü"] > ul > li, ' +
-    'header nav[aria-label="Main menu"] > ul > li, ' +
+    'header nav[aria-label="Main menu"] > ul > li';
+
+  // Selektor für Overflow-Items (off-screen, sichtbar im "Mehr"-Dropdown)
+  var OVERFLOW_NAV_SELECTOR =
     'header nav:not([aria-label]) > ul > li';
 
   // ---------- 2. Hilfsfunktionen ----------
@@ -103,6 +105,13 @@
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
     });
+  }
+
+  function isOverflowTrigger(li) {
+    // "Mehr" / "More" -Button: button ohne href innerhalb des li
+    var hasLink = !!li.querySelector('a[href]');
+    var hasButton = !!li.querySelector('button');
+    return !hasLink && hasButton;
   }
 
   // ---------- 3. API-Layer mit einfachem Cache ----------
@@ -143,6 +152,37 @@
         });
       }));
     });
+  }
+
+  // Für "Mehr": baue ein Panel aus allen Overflow-Items mit deren Kindern
+  function loadOverflowMenu() {
+    var lis = document.querySelectorAll(OVERFLOW_NAV_SELECTOR);
+    var jobs = [];
+    lis.forEach(function (li) {
+      var a = li.querySelector('a[href]');
+      if (!a) return;
+      var id = idFromHref(a.getAttribute('href'));
+      if (!id) return;
+      var title = (a.textContent || '').trim();
+      var url = a.getAttribute('href');
+      jobs.push(fetchMenu(id).then(function (node) {
+        return {
+          id: id,
+          title: title,
+          url: url,
+          children: ((node.children && node.children.data) || [])
+            .filter(function (c) { return (c.visibility || []).indexOf('desktop') !== -1; })
+            .map(function (c) {
+              return {
+                id: c.id,
+                title: pickTitle(c),
+                url: (c.target && c.target.url) || '#'
+              };
+            })
+        };
+      }));
+    });
+    return Promise.all(jobs);
   }
 
   // ---------- 4. Overlay rendern ----------
@@ -189,7 +229,7 @@
 
   function findMenuLi(target) {
     if (!target || !target.closest) return null;
-    return target.closest(HEADER_NAV_SELECTOR);
+    return target.closest(PRIMARY_NAV_SELECTOR);
   }
 
   function onPointerOver(ev) {
@@ -198,13 +238,25 @@
     if (li === currentLi) return;
     currentLi = li;
 
+    clearTimeout(closeTimer);
+    clearTimeout(openTimer);
+
+    // Fall A: "Mehr"-Trigger – zeige alle Overflow-Items
+    if (isOverflowTrigger(li)) {
+      openTimer = setTimeout(function () {
+        loadOverflowMenu()
+          .then(function (cols) { renderOverlay(cols); })
+          .catch(function (e) { console.warn('[megamenu] overflow load failed', e); });
+      }, 120);
+      return;
+    }
+
+    // Fall B: Normaler Menüpunkt – zeige Ebene 2 + 3
     var a = li.querySelector('a[href]');
     if (!a) { closeOverlay(); return; }
     var id = idFromHref(a.getAttribute('href'));
     if (!id) { closeOverlay(); return; }
 
-    clearTimeout(closeTimer);
-    clearTimeout(openTimer);
     openTimer = setTimeout(function () {
       loadTwoLevels(id)
         .then(function (cols) { renderOverlay(cols); })
