@@ -41,6 +41,18 @@
       '}',
       '#sb-megamenu.open { display: block; }',
 
+      /* Unsichtbare "Brücke" über der Lücke zwischen Header und Overlay,
+         damit der Hover beim Bewegen vom Trigger zum Overlay nicht abreißt. */
+      '#sb-megamenu::before {',
+      '  content: "";',
+      '  position: absolute;',
+      '  left: 0; right: 0;',
+      '  top: -40px;',
+      '  height: 40px;',
+      '  background: transparent;',
+      '  pointer-events: auto;',
+      '}',
+
       '#sb-megamenu .sb-mm-grid {',
       '  display: grid;',
       '  grid-template-columns: repeat(4, 1fr);',
@@ -78,6 +90,8 @@
   var LANG_FALLBACK_ORDER = ['en_US', 'de_DE'];
   var OVERLAY_ID = 'sb-megamenu';
   var CACHE_TTL_MS = 5 * 60 * 1000; // 5 Minuten
+  var OPEN_DELAY_MS  = 120;
+  var CLOSE_DELAY_MS = 350;
 
   // Selektor für sichtbare Hauptmenü-Items
   var PRIMARY_NAV_SELECTOR =
@@ -112,7 +126,6 @@
   }
 
   function isOverflowTrigger(li) {
-    // "Mehr" / "More" -Button: button ohne href innerhalb des li
     var hasLink = !!li.querySelector('a[href]');
     var hasButton = !!li.querySelector('button');
     return !hasLink && hasButton;
@@ -130,7 +143,6 @@
       .then(function (data) { cache[key] = { t: Date.now(), data: data }; return data; });
   }
 
-  // Lade direkte Kinder + Enkel parallel
   function loadTwoLevels(rootId) {
     return fetchMenu(rootId).then(function (root) {
       var lvl2 = (root.children && root.children.data) || [];
@@ -158,7 +170,6 @@
     });
   }
 
-  // Für "Mehr": baue ein Panel aus allen Overflow-Items mit deren Kindern
   function loadOverflowMenu() {
     var lis = document.querySelectorAll(OVERFLOW_NAV_SELECTOR);
     var jobs = [];
@@ -189,13 +200,44 @@
     return Promise.all(jobs);
   }
 
-  // ---------- 4. Overlay rendern ----------
+  // ---------- 4. Hover-State ----------
+  var hoveringTrigger = false;
+  var hoveringOverlay = false;
+  var currentLi  = null;
+  var openTimer  = null;
+  var closeTimer = null;
+
+  function scheduleClose() {
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(function () {
+      if (!hoveringTrigger && !hoveringOverlay) {
+        currentLi = null;
+        closeOverlay();
+      }
+    }, CLOSE_DELAY_MS);
+  }
+
+  function cancelClose() {
+    clearTimeout(closeTimer);
+  }
+
+  // ---------- 5. Overlay rendern ----------
   function ensureOverlay() {
     var el = document.getElementById(OVERLAY_ID);
     if (el) return el;
     el = document.createElement('div');
     el.id = OVERLAY_ID;
-    el.addEventListener('mouseleave', function () { closeOverlay(); });
+
+    // Overlay-eigenes Hover-Tracking – schließt nicht, solange Maus drin ist.
+    el.addEventListener('mouseenter', function () {
+      hoveringOverlay = true;
+      cancelClose();
+    });
+    el.addEventListener('mouseleave', function () {
+      hoveringOverlay = false;
+      scheduleClose();
+    });
+
     document.body.appendChild(el);
     return el;
   }
@@ -226,11 +268,7 @@
     if (el) el.classList.remove('open');
   }
 
-  // ---------- 5. Hover-Logik per Event-Delegation ----------
-  var currentLi  = null;
-  var openTimer  = null;
-  var closeTimer = null;
-
+  // ---------- 6. Hover-Logik per Event-Delegation auf Trigger ----------
   function findMenuLi(target) {
     if (!target || !target.closest) return null;
     return target.closest(PRIMARY_NAV_SELECTOR);
@@ -239,23 +277,26 @@
   function onPointerOver(ev) {
     var li = findMenuLi(ev.target);
     if (!li) return;
+
+    hoveringTrigger = true;
+    cancelClose();
+
     if (li === currentLi) return;
     currentLi = li;
 
-    clearTimeout(closeTimer);
     clearTimeout(openTimer);
 
-    // Fall A: "Mehr"-Trigger – zeige alle Overflow-Items
+    // Fall A: "Mehr"-Trigger
     if (isOverflowTrigger(li)) {
       openTimer = setTimeout(function () {
         loadOverflowMenu()
           .then(function (cols) { renderOverlay(cols); })
           .catch(function (e) { console.warn('[megamenu] overflow load failed', e); });
-      }, 120);
+      }, OPEN_DELAY_MS);
       return;
     }
 
-    // Fall B: Normaler Menüpunkt – zeige Ebene 2 + 3
+    // Fall B: Normaler Menüpunkt
     var a = li.querySelector('a[href]');
     if (!a) { closeOverlay(); return; }
     var id = idFromHref(a.getAttribute('href'));
@@ -265,21 +306,26 @@
       loadTwoLevels(id)
         .then(function (cols) { renderOverlay(cols); })
         .catch(function (e) { console.warn('[megamenu] load failed', e); });
-    }, 120);
+    }, OPEN_DELAY_MS);
   }
 
   function onPointerOut(ev) {
+    // Verlässt der Cursor wirklich die Trigger-Zone?
+    var li = findMenuLi(ev.target);
+    if (!li) return;
+
     var related = ev.relatedTarget;
+    // Wenn der Cursor in einem anderen Trigger oder im Overlay bleibt → nichts tun
     if (related && related.closest) {
-      // Cursor noch im Header, Overlay oder Native-Portal? → offen lassen
+      if (related.closest(PRIMARY_NAV_SELECTOR)) return;
+      if (related.closest('#' + OVERLAY_ID)) { hoveringOverlay = true; return; }
       if (related.closest('header')) return;
-      if (related.closest('#' + OVERLAY_ID)) return;
       if (related.closest('[data-base-ui-portal]')) return;
     }
-    currentLi = null;
+
+    hoveringTrigger = false;
     clearTimeout(openTimer);
-    clearTimeout(closeTimer);
-    closeTimer = setTimeout(closeOverlay, 200);
+    scheduleClose();
   }
 
   document.addEventListener('mouseover', onPointerOver, true);
@@ -287,6 +333,11 @@
 
   // ESC schließt das Menü
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape') { currentLi = null; closeOverlay(); }
+    if (ev.key === 'Escape') {
+      hoveringTrigger = false;
+      hoveringOverlay = false;
+      currentLi = null;
+      closeOverlay();
+    }
   });
 })();
