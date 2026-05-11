@@ -65,8 +65,10 @@
       '  margin: 0 0 12px;',
       '  color: #111;',
       '}',
-      '#sb-megamenu .sb-mm-col h3 a {',
-      '  color: inherit; text-decoration: none;',
+      /* Ordner-Überschrift ist nicht klickbar */
+      '#sb-megamenu .sb-mm-col h3.sb-mm-folder {',
+      '  cursor: default;',
+      '  user-select: none;',
       '}',
       '#sb-megamenu .sb-mm-col ul {',
       '  list-style: none; margin: 0; padding: 0;',
@@ -271,7 +273,9 @@
     var html = '<div class="sb-mm-grid">';
     columns.forEach(function (col) {
       html += '<div class="sb-mm-col">';
-      html += '<h3><a href="' + col.url + '">' + escapeHtml(col.title) + '</a></h3>';
+      // Ordner-Überschrift: nicht klickbar rendern (kein <a>),
+      // da der Ordner keine Landing Page hat und sonst auf die Startseite springt.
+      html += '<h3 class="sb-mm-folder">' + escapeHtml(col.title) + '</h3>';
       if (col.children && col.children.length) {
         html += '<ul>';
         col.children.forEach(function (item) {
@@ -342,7 +346,9 @@
     currentLi = null;
     closeOverlay();
 
-    spaNavigate(href);
+    // Harte Navigation für Level-3 Links, da die SPA-Auflösung
+    // der /openlink/content/page/-URLs nicht zuverlässig zur Zielseite führt.
+    window.location.assign(href);
   }
 
   // ---------- 8. Hover-Logik per Event-Delegation auf Trigger ----------
