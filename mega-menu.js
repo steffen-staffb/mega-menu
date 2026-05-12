@@ -37,7 +37,6 @@
       '  background: #dedede;',
       '  color: #111;',
       '  box-shadow: 0 6px 16px rgba(0,0,0,0.12);',
-      '  border-radius: 16px;',
       '  padding: 24px 48px;',
       '  display: none;',
       '  pointer-events: auto !important;',
@@ -59,11 +58,18 @@
 
       '#sb-megamenu .sb-mm-grid {',
       '  display: grid;',
-      '  grid-auto-flow: column;',
-      '  grid-auto-columns: max-content;',
-      '  gap: 24px 48px;',
+      '  grid-template-columns: repeat(var(--mm-cols, 4), minmax(0, 1fr));',
+      '  column-gap: 48px;',
+      '  row-gap: 24px;',
       '  width: 100%;',
       '  margin: 0 auto;',
+      '}',
+      /* Trennlinie zwischen Reihen, sobald mehr als eine Reihe entsteht.
+         Greift jede Spalte ab Position 1 in Reihe 2+, also alle Elemente
+         deren Index > Anzahl Spalten ist. */
+      '#sb-megamenu .sb-mm-col.sb-mm-row-divider {',
+      '  border-top: 1px solid #9a9a9a;',
+      '  padding-top: 24px;',
       '}',
       '#sb-megamenu .sb-mm-col h3 {',
       '  font-size: 16px;',
@@ -296,9 +302,15 @@
   function renderOverlay(columns) {
     var el = ensureOverlay();
     if (!columns.length) { closeOverlay(); return; }
-    var html = '<div class="sb-mm-grid">';
-    columns.forEach(function (col) {
-      html += '<div class="sb-mm-col">';
+    // Maximal vier Spalten pro Reihe; bei weniger Spalten passen wir das
+    // Grid an, damit die Spalten nicht künstlich in die Breite gezogen werden.
+    var MAX_COLS_PER_ROW = 4;
+    var colCount = Math.min(columns.length, MAX_COLS_PER_ROW);
+    var html = '<div class="sb-mm-grid" style="--mm-cols:' + colCount + ';">';
+    columns.forEach(function (col, idx) {
+      // Ab Reihe 2 (also Index >= MAX_COLS_PER_ROW) eine Trennlinie zeigen.
+      var divider = (idx >= MAX_COLS_PER_ROW) ? ' sb-mm-row-divider' : '';
+      html += '<div class="sb-mm-col' + divider + '">';
       // Ordner-Überschrift: nicht klickbar rendern (kein <a>),
       // da der Ordner keine Landing Page hat und sonst auf die Startseite springt.
       html += '<h3 class="sb-mm-folder">' + escapeHtml(col.title) + '</h3>';
@@ -454,3 +466,4 @@
     closeOverlay();
   });
 })();
+
