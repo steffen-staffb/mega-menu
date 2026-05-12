@@ -80,6 +80,16 @@
       '  margin: 0 0 12px;',
       '  color: #111;',
       '}',
+      /* Level-1-Header (klickbar): visuell identisch zu Folder-Headern,
+         aber mit Link-Verhalten. */
+      '#sb-megamenu .sb-mm-col h3.sb-mm-level1 a {',
+      '  color: inherit;',
+      '  text-decoration: none;',
+      '  cursor: pointer;',
+      '}',
+      '#sb-megamenu .sb-mm-col h3.sb-mm-level1 a:hover {',
+      '  text-decoration: underline;',
+      '}',
       /* Ordner-Überschrift ist nicht klickbar */
       '#sb-megamenu .sb-mm-col h3.sb-mm-folder {',
       '  cursor: default;',
@@ -245,6 +255,10 @@
           id: id,
           title: title,
           url: url,
+          // Markiert die Spalte als Level-1-Eintrag (kommt aus dem
+          // "Mehr"-Overflow). Solche Spalten-Header sollen klickbar sein,
+          // da sie eine echte Landing Page haben.
+          isLevel1: true,
           children: ((node.children && node.children.data) || [])
             .filter(function (g) { return (g.visibility || []).indexOf('desktop') !== -1; })
             .map(function (g) {
@@ -317,9 +331,16 @@
         html += '<div class="sb-mm-row-divider" aria-hidden="true"></div>';
       }
       html += '<div class="sb-mm-col">';
-      // Ordner-Überschrift: nicht klickbar rendern (kein <a>),
-      // da der Ordner keine Landing Page hat und sonst auf die Startseite springt.
-      html += '<h3 class="sb-mm-folder">' + escapeHtml(col.title) + '</h3>';
+      if (col.isLevel1 && col.url && col.url !== '#') {
+        // Level-1-Spalten (aus dem "Mehr"-Overflow) haben eine echte
+        // Landing Page und werden daher als klickbarer Link gerendert.
+        html += '<h3 class="sb-mm-level1"><a href="' + col.url + '">'
+              + escapeHtml(col.title) + '</a></h3>';
+      } else {
+        // Ordner-Überschrift: nicht klickbar rendern (kein <a>),
+        // da der Ordner keine Landing Page hat und sonst auf die Startseite springt.
+        html += '<h3 class="sb-mm-folder">' + escapeHtml(col.title) + '</h3>';
+      }
       if (col.children && col.children.length) {
         html += '<ul>';
         col.children.forEach(function (item) {
