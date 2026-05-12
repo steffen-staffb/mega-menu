@@ -478,6 +478,29 @@
     scheduleClose();
   }
 
+  // Globaler Watcher: schließt das Menü, sobald die Maus weder über der
+  // NavBar (header) noch über dem grauen Mega-Menü-Overlay ist.
+  function isInsideNavOrOverlay(target) {
+    if (!target || !target.closest) return false;
+    if (target.closest('header')) return true;
+    if (target.closest('#' + OVERLAY_ID)) return true;
+    if (target.closest('[data-base-ui-portal]')) return true;
+    return false;
+  }
+  document.addEventListener('mousemove', function (ev) {
+    var el = document.getElementById(OVERLAY_ID);
+    if (!el || !el.classList.contains('open')) return;
+    if (isInsideNavOrOverlay(ev.target)) {
+      // Innerhalb von NavBar oder Overlay -> nicht schließen
+      return;
+    }
+    // Außerhalb von NavBar und Overlay -> Menü schließen
+    hoveringTrigger = false;
+    hoveringOverlay = false;
+    clearTimeout(openTimer);
+    scheduleClose();
+  });
+  
   document.addEventListener('mouseover', onPointerOver, true);
   document.addEventListener('mouseout', onPointerOut, true);
 
