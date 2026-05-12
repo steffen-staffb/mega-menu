@@ -407,7 +407,8 @@
     var href = a.getAttribute('href');
     if (!href || href === '#') return;
 
-    // Bewusst kein ev.preventDefault() / ev.stopPropagation(): wir wollen das Standard-Klickverhalten des <a> (SPA-Navigation).
+    ev.preventDefault();
+    ev.stopPropagation();
 
     // Menü schließen, dann navigieren
     hoveringTrigger = false;
@@ -417,7 +418,8 @@
 
     // Harte Navigation für Level-3 Links, da die SPA-Auflösung
     // der /openlink/content/page/-URLs nicht zuverlässig zur Zielseite führt.
-    // SPA-Navigation: kein location.assign, der Anchor-Default-Klick triggert das Staffbase-Routing.
+    // SPA-Navigation: erst gleichen Header-Link 'klicken' (Staffbase-Router), sonst pushState+popstate, ansonsten harter Fallback.
+    spaNavigate(href);
   }
 
   // ---------- 8. Hover-Logik per Event-Delegation auf Trigger ----------
