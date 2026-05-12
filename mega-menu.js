@@ -31,8 +31,8 @@
       '  position: fixed;',
       '  left: 50%;',
       '  transform: translateX(-50%);',
-      '  width: calc(100% - 64px);',
-      '  max-width: 1332px;',
+      '  width: max-content;',
+      '  max-width: calc(100% - 64px);',
       '  top: 84px;',
       '  z-index: 10000;',
       '  background: #f5f5f5;',
@@ -60,7 +60,8 @@
 
       '#sb-megamenu .sb-mm-grid {',
       '  display: grid;',
-      '  grid-template-columns: repeat(4, 1fr);',
+      '  grid-auto-flow: column;',
+      '  grid-auto-columns: max-content;',
       '  gap: 24px 48px;',
       '  width: 100%;',
       '  margin: 0 auto;',
@@ -155,8 +156,10 @@
     var rect = header.getBoundingClientRect();
     // Unterkante des Headers = obere Kante des Overlays (keine Lücke)
     el.style.top = Math.max(0, Math.round(rect.bottom)) + 'px';
-    // Breite & horizontale Ausrichtung exakt auf die NavBar abstimmen
-    el.style.width = Math.round(rect.width) + 'px';
+    // Maximale Breite und horizontale Ausrichtung an der NavBar orientieren.
+    // Die tatsächliche Breite ergibt sich dynamisch aus dem Inhalt (max-content),
+    // wird aber durch maxWidth = NavBar-Breite begrenzt.
+    el.style.maxWidth = Math.round(rect.width) + 'px';
     el.style.left = Math.round(rect.left + rect.width / 2) + 'px';
     // Brückenhöhe = etwas Puffer
     el.style.setProperty('--mm-bridge', '24px');
