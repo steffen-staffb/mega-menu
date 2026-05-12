@@ -35,7 +35,7 @@
       '  max-width: calc(100% - 64px);',
       '  top: 84px;',
       '  z-index: 10000;',
-      '  background: #f5f5f5;',
+      '  background: #dedede;',
       '  color: #111;',
       '  box-shadow: 0 6px 16px rgba(0,0,0,0.12);',
       '  border-radius: 16px;',
