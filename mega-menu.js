@@ -527,7 +527,8 @@
   //    Browser-Chrome): mousemove feuert nicht mehr. Wir nutzen mouseout mit
   //    relatedTarget === null und prüfen die Koordinaten gegen NavBar/Overlay.
   document.addEventListener('mouseout', function (ev) {
-    if (ev.relatedTarget !== null) return;
+    var rt = ev.relatedTarget;
+        if (rt && rt.closest && (rt.closest('header') || rt.closest('#' + OVERLAY_ID) || rt.closest('[data-base-ui-portal]'))) return;
     var el = document.getElementById(OVERLAY_ID);
     if (!el || !el.classList.contains('open')) return;
     if (isPointInsideNavOrOverlay(ev.clientX, ev.clientY)) return;
