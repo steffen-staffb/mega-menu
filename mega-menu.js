@@ -25,18 +25,24 @@
       '  pointer-events: none !important;',
       '}',
 
-      /* Mega-Menü-Overlay – top wird zur Laufzeit dynamisch gesetzt */
+      /* Mega-Menü-Overlay – Breite & Position werden zur Laufzeit dynamisch
+         auf die orange NavBar abgestimmt (siehe updateOverlayPosition). */
       '#sb-megamenu {',
       '  position: fixed;',
-      '  left: 0; right: 0;',
+      '  left: 50%;',
+      '  transform: translateX(-50%);',
+      '  width: calc(100% - 64px);',
+      '  max-width: 1332px;',
       '  top: 84px;',
       '  z-index: 10000;',
       '  background: #ececec;',
       '  color: #111;',
       '  box-shadow: 0 6px 16px rgba(0,0,0,0.12);',
+      '  border-radius: 16px;',
       '  padding: 24px 48px;',
       '  display: none;',
       '  pointer-events: auto !important;',
+      '  box-sizing: border-box;',
       '}',
       '#sb-megamenu.open { display: block; }',
 
@@ -56,7 +62,7 @@
       '  display: grid;',
       '  grid-template-columns: repeat(4, 1fr);',
       '  gap: 24px 48px;',
-      '  max-width: 1332px;',
+      '  width: 100%;',
       '  margin: 0 auto;',
       '}',
       '#sb-megamenu .sb-mm-col h3 {',
@@ -92,7 +98,7 @@
   var LANG_FALLBACK_ORDER = ['en_US', 'de_DE'];
   var OVERLAY_ID = 'sb-megamenu';
   var CACHE_TTL_MS = 5 * 60 * 1000;
-  var OPEN_DELAY_MS  = 120;
+  var OPEN_DELAY_MS = 120;
   var CLOSE_DELAY_MS = 350;
 
   var PRIMARY_NAV_SELECTOR =
@@ -141,7 +147,7 @@
   }
 
   // ---------- 3. Overlay-Position dynamisch an Header andocken ----------
-  function updateOverlayTop() {
+  function updateOverlayPosition() {
     var el = document.getElementById(OVERLAY_ID);
     if (!el) return;
     var header = document.querySelector('header');
@@ -149,12 +155,15 @@
     var rect = header.getBoundingClientRect();
     // Unterkante des Headers = obere Kante des Overlays (keine Lücke)
     el.style.top = Math.max(0, Math.round(rect.bottom)) + 'px';
+    // Breite & horizontale Ausrichtung exakt auf die NavBar abstimmen
+    el.style.width = Math.round(rect.width) + 'px';
+    el.style.left = Math.round(rect.left + rect.width / 2) + 'px';
     // Brückenhöhe = etwas Puffer
     el.style.setProperty('--mm-bridge', '24px');
   }
 
-  window.addEventListener('resize', updateOverlayTop);
-  window.addEventListener('scroll', updateOverlayTop, true);
+  window.addEventListener('resize', updateOverlayPosition);
+  window.addEventListener('scroll', updateOverlayPosition, true);
 
   // ---------- 4. API-Layer mit einfachem Cache ----------
   var cache = {};
@@ -228,8 +237,8 @@
   // ---------- 5. Hover-State ----------
   var hoveringTrigger = false;
   var hoveringOverlay = false;
-  var currentLi  = null;
-  var openTimer  = null;
+  var currentLi = null;
+  var openTimer = null;
   var closeTimer = null;
 
   function scheduleClose() {
@@ -263,7 +272,7 @@
     el.addEventListener('click', onOverlayClick, true);
 
     document.body.appendChild(el);
-    updateOverlayTop();
+    updateOverlayPosition();
     return el;
   }
 
@@ -288,7 +297,7 @@
     html += '</div>';
     el.innerHTML = html;
     el.classList.add('open');
-    updateOverlayTop();
+    updateOverlayPosition();
   }
 
   function closeOverlay() {
@@ -408,7 +417,7 @@
   }
 
   document.addEventListener('mouseover', onPointerOver, true);
-  document.addEventListener('mouseout',  onPointerOut,  true);
+  document.addEventListener('mouseout', onPointerOut, true);
 
   // ESC schließt das Menü
   document.addEventListener('keydown', function (ev) {
