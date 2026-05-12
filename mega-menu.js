@@ -29,8 +29,7 @@
          auf die orange NavBar abgestimmt (siehe updateOverlayPosition). */
       '#sb-megamenu {',
       '  position: fixed;',
-      '  left: 50%;',
-      '  transform: translateX(-50%);',
+      '  left: 0;',
       '  width: max-content;',
       '  max-width: calc(100% - 64px);',
       '  top: 84px;',
@@ -153,14 +152,29 @@
     if (!el) return;
     var header = document.querySelector('header');
     if (!header) return;
-    var rect = header.getBoundingClientRect();
+    var headerRect = header.getBoundingClientRect();
     // Unterkante des Headers = obere Kante des Overlays (keine Lücke)
-    el.style.top = Math.max(0, Math.round(rect.bottom)) + 'px';
-    // Maximale Breite und horizontale Ausrichtung an der NavBar orientieren.
-    // Die tatsächliche Breite ergibt sich dynamisch aus dem Inhalt (max-content),
-    // wird aber durch maxWidth = NavBar-Breite begrenzt.
-    el.style.maxWidth = Math.round(rect.width) + 'px';
-    el.style.left = Math.round(rect.left + rect.width / 2) + 'px';
+    el.style.top = Math.max(0, Math.round(headerRect.bottom)) + 'px';
+    // Maximale Breite an der NavBar-Breite orientieren.
+    // Die tatsächliche Breite ergibt sich dynamisch aus dem Inhalt (max-content).
+    el.style.maxWidth = Math.round(headerRect.width) + 'px';
+
+    // Links an der linken Kante des aktiven Level-1-Triggers ausrichten.
+    // Fallback: linke Kante der NavBar, falls (noch) kein Trigger bekannt ist.
+    var anchor = (currentLi && currentLi.getBoundingClientRect)
+      ? currentLi.getBoundingClientRect()
+      : null;
+    var desiredLeft = anchor ? anchor.left : headerRect.left;
+
+    // Damit das Overlay nicht über die rechte NavBar-Kante hinausragt,
+    // klemmen wir die linke Position an die rechte NavBar-Grenze minus
+    // tatsächlicher Overlay-Breite.
+    var overlayWidth = el.getBoundingClientRect().width || 0;
+    var maxLeft = headerRect.right - overlayWidth;
+    var minLeft = headerRect.left;
+    var clampedLeft = Math.min(Math.max(desiredLeft, minLeft), Math.max(maxLeft, minLeft));
+
+    el.style.left = Math.round(clampedLeft) + 'px';
     // Brückenhöhe = etwas Puffer
     el.style.setProperty('--mm-bridge', '24px');
   }
