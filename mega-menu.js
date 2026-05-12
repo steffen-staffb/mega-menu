@@ -487,21 +487,67 @@
     if (target.closest('[data-base-ui-portal]')) return true;
     return false;
   }
-  document.addEventListener('mousemove', function (ev) {
-    var el = document.getElementById(OVERLAY_ID);
-    if (!el || !el.classList.contains('open')) return;
-    if (isInsideNavOrOverlay(ev.target)) {
-      // Innerhalb von NavBar oder Overlay -> nicht schließen
-      return;
+
+  // Hilfsfunktion: prüft anhand von Koordinaten (clientX/clientY), ob sich
+  // der Punkt innerhalb der orange NavBar oder des grauen Mega-Menü-Overlays
+  // (inkl. der unsichtbaren Hover-Brücke darüber) befindet.
+  function isPointInsideNavOrOverlay(x, y) {
+    var header = document.querySelector('header');
+    if (header) {
+      var hr = header.getBoundingClientRect();
+      if (x >= hr.left && x <= hr.right && y >= hr.top && y <= hr.bottom) return true;
     }
-    // Außerhalb von NavBar und Overlay -> Menü schließen
+    var el = document.getElementById(OVERLAY_ID);
+    if (el && el.classList.contains('open')) {
+      var or = el.getBoundingClientRect();
+      // Inkl. 24px Hover-Brücke nach oben
+      if (x >= or.left && x <= or.right && y >= (or.top - 24) && y <= or.bottom) return true;
+    }
+    return false;
+  }
+
+  // Schließt das Menü zuverlässig, unabhängig vom hoveringTrigger-Status.
+  function forceScheduleClose() {
     hoveringTrigger = false;
     hoveringOverlay = false;
     clearTimeout(openTimer);
     scheduleClose();
+  }
+
+  // 1) Bewegung innerhalb des Dokuments: per mousemove prüfen.
+  document.addEventListener('mousemove', function (ev) {
+    var el = document.getElementById(OVERLAY_ID);
+    if (!el || !el.classList.contains('open')) return;
+    if (isInsideNavOrOverlay(ev.target)) return;
+    if (isPointInsideNavOrOverlay(ev.clientX, ev.clientY)) return;
+    forceScheduleClose();
   });
-  
-  document.addEventListener('mouseover', onPointerOver, true);
+
+  // 2) Cursor verlässt das Dokument (z.B. wechselt in ein iframe oder zur
+  //    Browser-Chrome): mousemove feuert nicht mehr. Wir nutzen mouseout mit
+  //    relatedTarget === null und prüfen die Koordinaten gegen NavBar/Overlay.
+  document.addEventListener('mouseout', function (ev) {
+    if (ev.relatedTarget !== null) return;
+    var el = document.getElementById(OVERLAY_ID);
+    if (!el || !el.classList.contains('open')) return;
+    if (isPointInsideNavOrOverlay(ev.clientX, ev.clientY)) return;
+    forceScheduleClose();
+  }, true);
+
+  // 3) Sicherheitsnetz: mouseleave auf header setzt hoveringTrigger zurück.
+  (function bindHeaderLeave(){
+    var header = document.querySelector('header');
+    if (!header) { setTimeout(bindHeaderLeave, 200); return; }
+    header.addEventListener('mouseleave', function (ev) {
+      // Falls die Maus von der NavBar ins Overlay wandert, NICHT schließen.
+      var rt = ev.relatedTarget;
+      if (rt && rt.closest && rt.closest('#' + OVERLAY_ID)) return;
+      hoveringTrigger = false;
+      scheduleClose();
+    });
+  })();
+
+    document.addEventListener('mouseover', onPointerOver, true);
   document.addEventListener('mouseout', onPointerOut, true);
 
   // ESC schließt das Menü
