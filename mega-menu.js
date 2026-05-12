@@ -64,12 +64,15 @@
       '  width: 100%;',
       '  margin: 0 auto;',
       '}',
-      /* Trennlinie zwischen Reihen, sobald mehr als eine Reihe entsteht.
-         Greift jede Spalte ab Position 1 in Reihe 2+, also alle Elemente
-         deren Index > Anzahl Spalten ist. */
-      '#sb-megamenu .sb-mm-col.sb-mm-row-divider {',
-      '  border-top: 1px solid #9a9a9a;',
-      '  padding-top: 24px;',
+      /* Durchgehende horizontale Trennlinie zwischen Reihen.
+         Spannt sich über alle Grid-Spalten, sodass keine Lücken im
+         Column-Gap entstehen. */
+      '#sb-megamenu .sb-mm-row-divider {',
+      '  grid-column: 1 / -1;',
+      '  height: 1px;',
+      '  background: #9a9a9a;',
+      '  margin: 0;',
+      '  padding: 0;',
       '}',
       '#sb-megamenu .sb-mm-col h3 {',
       '  font-size: 16px;',
@@ -308,9 +311,12 @@
     var colCount = Math.min(columns.length, MAX_COLS_PER_ROW);
     var html = '<div class="sb-mm-grid" style="--mm-cols:' + colCount + ';">';
     columns.forEach(function (col, idx) {
-      // Ab Reihe 2 (also Index >= MAX_COLS_PER_ROW) eine Trennlinie zeigen.
-      var divider = (idx >= MAX_COLS_PER_ROW) ? ' sb-mm-row-divider' : '';
-      html += '<div class="sb-mm-col' + divider + '">';
+      // Vor jedem Spaltenanfang einer neuen Reihe (ab Reihe 2) eine
+      // durchgehende Trennlinie als eigenes Grid-Item einfügen.
+      if (idx > 0 && idx % MAX_COLS_PER_ROW === 0) {
+        html += '<div class="sb-mm-row-divider" aria-hidden="true"></div>';
+      }
+      html += '<div class="sb-mm-col">';
       // Ordner-Überschrift: nicht klickbar rendern (kein <a>),
       // da der Ordner keine Landing Page hat und sonst auf die Startseite springt.
       html += '<h3 class="sb-mm-folder">' + escapeHtml(col.title) + '</h3>';
