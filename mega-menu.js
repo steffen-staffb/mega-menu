@@ -11,6 +11,11 @@
 (function () {
   'use strict';
 
+  function stripOpenlink(u){
+    if (typeof u !== 'string') return u;
+    return u.indexOf('/openlink/') === 0 ? u.slice('/openlink'.length) : u;
+  }
+
   // ---------- 0. CSS in den Head injizieren ----------
   (function injectStyles() {
     if (document.getElementById('sb-megamenu-styles')) return;
@@ -224,14 +229,14 @@
           return {
             id: c.id,
             title: pickTitle(c),
-            url: (c.target && c.target.url) || '#',
+            url: stripOpenlink((c.target && c.target.url) || '#'),
             children: ((full.children && full.children.data) || [])
               .filter(function (g) { return (g.visibility || []).indexOf('desktop') !== -1; })
               .map(function (g) {
                 return {
                   id: g.id,
                   title: pickTitle(g),
-                  url: (g.target && g.target.url) || '#'
+                  url: stripOpenlink((g.target && g.target.url) || '#')
                 };
               })
           };
@@ -265,7 +270,7 @@
               return {
                 id: g.id,
                 title: pickTitle(g),
-                url: (g.target && g.target.url) || '#'
+                url: stripOpenlink((g.target && g.target.url) || '#')
               };
             })
         };
@@ -402,8 +407,7 @@
     var href = a.getAttribute('href');
     if (!href || href === '#') return;
 
-    ev.preventDefault();
-    ev.stopPropagation();
+    // Bewusst kein ev.preventDefault() / ev.stopPropagation(): wir wollen das Standard-Klickverhalten des <a> (SPA-Navigation).
 
     // Menü schließen, dann navigieren
     hoveringTrigger = false;
@@ -413,7 +417,7 @@
 
     // Harte Navigation für Level-3 Links, da die SPA-Auflösung
     // der /openlink/content/page/-URLs nicht zuverlässig zur Zielseite führt.
-    window.location.assign(href);
+    // SPA-Navigation: kein location.assign, der Anchor-Default-Klick triggert das Staffbase-Routing.
   }
 
   // ---------- 8. Hover-Logik per Event-Delegation auf Trigger ----------
@@ -493,4 +497,5 @@
     closeOverlay();
   });
 })();
+
 
